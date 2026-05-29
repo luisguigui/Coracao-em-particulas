@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coração - Partículas Centralizado</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+    .glass {
+      background: rgba(10, 10, 16, 0.35);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
+    }
+    .pulse {
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: .92; }
+      50% { transform: scale(1.03); opacity: 1; }
+    }
+    .float {
+      animation: float 6s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="fixed inset-0 pointer-events-none">
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,34,85,0.16),rgba(0,0,0,0)_45%)]"></div>
+    <div class="absolute top-4 left-4 right-4 flex items-start justify-between gap-3">
+      <div class="glass rounded-2xl px-4 py-3 text-white/90 max-w-[340px] float">
+        <div class="text-xs uppercase tracking-[0.35em] text-pink-300/90">Coração de Partículas</div>
+        <div class="mt-1 text-sm text-white/70">Animação 3D centralizada com brilho suave e movimento orgânico.</div>
+      </div>
+      <div class="glass rounded-2xl px-4 py-3 text-white/80 text-right hidden sm:block pulse">
+        <div class="text-xs uppercase tracking-[0.3em] text-white/50">Status</div>
+        <div class="text-sm">Renderização ativa</div>
+      </div>
+    </div>
+
+    <div class="absolute inset-x-0 bottom-0 p-4 flex justify-center">
+      <div class="glass rounded-full px-5 py-3 text-center text-white/80 text-sm sm:text-base">
+        Coração em partículas — toque e mova o dispositivo para sentir a profundidade
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 100);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 1);
+    document.body.appendChild(renderer.domElement);
+
+    camera.position.z = 35;
+
+    const TOTAL = 400;
+    const SCALE = 0.70;
+    const rawPositions = [];
+    let sumY = 0;
+
+    for (let i = 0; i < TOTAL; i++) {
+      const t = (i / TOTAL) * Math.PI * 2;
+      const x = 16 * Math.pow(Math.sin(t), 3);
+      const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+      rawPositions.push(x * SCALE, y * SCALE, (Math.random() - 0.5) * 1.5);
+      sumY += y * SCALE;
+    }
+
+    const centerY = sumY / TOTAL;
+    const finalPositions = [];
+
+    for (let i = 0; i < TOTAL; i++) {
+      finalPositions.push(
+        rawPositions[i * 3],
+        rawPositions[i * 3 + 1] - centerY,
+        rawPositions[i * 3 + 2]
+      );
+    }
+
+    const initPos = new Float32Array(TOTAL * 3);
+    for (let i = 0; i < TOTAL; i++) {
+      initPos[i * 3] = (Math.random() - 0.5) * 40;
+      initPos[i * 3 + 1] = (Math.random() - 0.5) * 40;
+      initPos[i * 3 + 2] = (Math.random() - 0.5) * 40;
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(initPos, 3));
+
+    const material = new THREE.PointsMaterial({
+      color: 0xff2255,
+      size: 0.6,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const particles = new THREE.Points(geometry, material);
+    scene.add(particles);
+
+    const posAttr = geometry.attributes.position;
+
+    for (let i = 0; i < TOTAL; i++) {
+      const proxy = {
+        x: posAttr.getX(i),
+        y: posAttr.getY(i),
+        z: posAttr.getZ(i)
+      };
+
+      gsap.to(proxy, {
+        x: finalPositions[i * 3],
+        y: finalPositions[i * 3 + 1],
+        z: finalPositions[i * 3 + 2],
+        duration: 2.5 + Math.random() * 2.0,
+        ease: 'power3.inOut',
+        repeat: -1,
+        yoyo: true,
+        hold: 1.0,
+        delay: Math.random() * 2.0,
+        onUpdate: () => {
+          posAttr.setXYZ(i, proxy.x, proxy.y, proxy.z);
+          posAttr.needsUpdate = true;
+        }
+      });
+    }
+
+    let pointerX = 0;
+    let pointerY = 0;
+    let targetRotX = 0;
+    let targetRotY = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      particles.rotation.y += 0.003;
+      particles.rotation.x = Math.sin(Date.now() * 0.0005) * 0.1;
+
+      targetRotX += (pointerY - targetRotX) * 0.04;
+      targetRotY += (pointerX - targetRotY) * 0.04;
+
+      particles.rotation.x += targetRotX * 0.015;
+      particles.rotation.y += targetRotY * 0.015;
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      pointerX = (e.clientX / window.innerWidth - 0.5) * 2;
+      pointerY = -(e.clientY / window.innerHeight - 0.5) * 2;
+    });
+
+    window.addEventListener('deviceorientation', (e) => {
+      if (e.beta != null && e.gamma != null) {
+        pointerY = Math.max(-1, Math.min(1, e.beta / 45));
+        pointerX = Math.max(-1, Math.min(1, e.gamma / 45));
+      }
+    });
+  </script>
+</body>
+</html>
